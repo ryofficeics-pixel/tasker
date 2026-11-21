@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f0efe9">
+<title><?= systemName ?></title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ===== Tema UI disalin dari ICS Absensi: karyawan.html (staf & admin memakai tema yang sama) ===== */
+:root,body.th-staff{
+  --bg:#f0efe9; --surface:#fff; --surface2:#e8e7e0; --surface3:#dddcd5; --dark:#1a1a1a; --amber:#8a7a5a; --rose:#c0392b; --violet:#4a4a6a; --success:#2d7a4a;
+  --text:#1a1a1a; --muted:#7a7a6a; --border:rgba(26,26,26,0.12); --glow:0 4px 24px rgba(0,0,0,0.08);
+  --card:var(--surface); --ink:var(--text); --line:var(--border); --accent:var(--dark); --accent-ink:#f0efe9;
+  --ok:#2d7a4a; --ok-bg:rgba(45,122,74,.1); --warn:#8a7a5a; --warn-bg:rgba(138,122,90,.1); --bad:#c0392b; --bad-bg:rgba(192,57,43,.08);
+  --info:#4a4a6a; --info-bg:rgba(74,74,106,.1); --neu:#7a7a6a; --neu-bg:#e8e7e0; --shadow:none;
+  --btn-bg:#1a1a1a; --btn-ink:#f0efe9; --btn-shadow:0 6px 20px rgba(0,0,0,.15); --focus:rgba(26,26,26,.08);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;font-size:15px;line-height:1.45}
+h1,h2,h3{line-height:1.25;font-family:'Syne',sans-serif}
+h2{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:20px 0 10px}
+h3{font-size:15px;font-weight:700}
+button,input,select,textarea{font:inherit;color:inherit}
+[hidden]{display:none!important}
+#app{position:relative;z-index:1}
+
+/* ---- STAF: .app / .header / .profile-card / .content (karyawan.html) ---- */
+.th-staff .app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+header.top{padding:14px 20px;background:rgba(240,239,233,.95);backdrop-filter:blur(20px);position:sticky;top:0;z-index:100;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.header-brand{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;letter-spacing:-.5px;display:flex;align-items:center;gap:8px}
+.hdr{display:flex;align-items:center;gap:10px}
+.clock-pill{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--dark);background:var(--surface2);border:1px solid var(--border);padding:7px 14px;border-radius:20px}
+.btn-out{background:none;border:1px solid var(--border);color:var(--muted);padding:6px 12px;border-radius:10px;font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif}
+.th-staff #main{flex:1;padding:18px;padding-bottom:40px;display:flex;flex-direction:column;gap:14px}
+.profile-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:18px;display:flex;align-items:center;gap:14px}
+.av{width:52px;height:52px;border-radius:14px;background:var(--dark);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:#f0efe9;flex-shrink:0}
+.pi{flex:1;min-width:0}
+.pname{font-family:'Syne',sans-serif;font-size:16px;font-weight:700}
+.pdept{font-size:12px;color:var(--muted);margin-top:2px}
+.pid{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--amber);margin-top:3px}
+
+/* ---- Tab staf (segmen) ---- */
+.th-staff nav.tabs{display:flex;background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:3px;gap:3px}
+.th-staff nav.tabs button{flex:1;border:0;background:transparent;min-height:40px;border-radius:11px;cursor:pointer;color:var(--muted);font-family:'Syne',sans-serif;font-weight:700;font-size:13px}
+.th-staff nav.tabs button .ic{display:none}
+.th-staff nav.tabs button[aria-selected="true"]{background:var(--surface);color:var(--dark);box-shadow:0 1px 4px rgba(0,0,0,.08)}
+
+/* ---- Komponen bersama ---- */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:18px}
+.stack>*+*{margin-top:10px}
+.grid{display:grid;gap:12px}
+.kpis{grid-template-columns:repeat(2,1fr)}
+.kpi{position:relative;overflow:hidden;padding:16px}
+.kpi .v{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;line-height:1}
+.kpi .l{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-top:8px}
+.kpi.bad .v{color:var(--bad)} .kpi.ok .v{color:var(--ok)}
+.chip{display:inline-block;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;background:var(--neu-bg);color:var(--neu);white-space:nowrap;border:1px solid var(--border)}
+.chip.NEW,.chip.PROGRESS{background:var(--info-bg);color:var(--info)}
+.chip.PENDING{background:var(--warn-bg);color:var(--warn)} .chip.COMPLETED{background:var(--ok-bg);color:var(--ok)}
+.chip.OVERDUE{background:var(--bad-bg);color:var(--bad)} .chip.CANCELLED{background:var(--neu-bg);color:var(--neu)}
+.task{display:block;width:100%;text-align:left;cursor:pointer;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:14px}
+.task:active{background:var(--surface2)}
+.task .t{font-family:'Syne',sans-serif;font-weight:700;font-size:14px;margin-bottom:3px;overflow-wrap:anywhere}
+.task .m{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.task .r{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}
+.task .dl{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600}
+.task .dl.late{color:var(--bad)} .task .dl.soon{color:var(--warn)}
+.bar{height:8px;background:var(--surface2);border-radius:4px;overflow:hidden;flex:1;min-width:60px}
+.bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--success),#059669);border-radius:4px}
+.pri{font-size:12px;color:var(--muted)}
+.pri.Urgent,.pri.High{color:var(--bad);font-weight:700}
+label.f{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:14px 0 7px}
+input[type=text],input[type=date],input[type=search],input[type=password],select,textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:13px 16px;min-height:46px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;outline:none;transition:border-color .2s,box-shadow .2s}
+textarea{min-height:84px;resize:vertical}
+input::placeholder,textarea::placeholder{color:var(--muted)}
+.th-staff input:focus,.th-staff select:focus,.th-staff textarea:focus{border-color:var(--dark);box-shadow:0 0 0 3px var(--focus)}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+input[type=range]{width:100%;accent-color:var(--dark);min-height:36px;padding:0;background:none;border:0}
+.btn{background:var(--btn-bg);color:var(--btn-ink);border:0;border-radius:12px;min-height:48px;padding:0 20px;font-family:'Syne',sans-serif;font-size:15px;font-weight:700;cursor:pointer;box-shadow:var(--btn-shadow);transition:transform .2s}
+.btn:active{transform:scale(.98)}
+.btn.sec{background:var(--surface2);color:var(--text);border:1px solid var(--border);box-shadow:none;font-family:'DM Sans',sans-serif;font-weight:600}
+.btn.danger{background:var(--rose);color:#fff}
+.btn:disabled{background:var(--surface2);color:var(--muted);box-shadow:none;cursor:not-allowed}
+.btn.block{width:100%}
+.row{display:flex;gap:10px;align-items:center}
+.row.wrapr{flex-wrap:wrap}
+.grow{flex:1;min-width:0}
+.seg{display:flex;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:3px;gap:3px}
+.seg button{flex:1;border:0;background:transparent;min-height:38px;border-radius:9px;cursor:pointer;color:var(--muted);font-weight:600;font-family:'DM Sans',sans-serif}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.1)}
+table.t{width:100%;border-collapse:collapse;font-size:13px}
+table.t thead,table.t tr:first-child{background:var(--surface2)}
+table.t th{padding:11px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);text-align:left;white-space:nowrap;border-bottom:1px solid var(--border)}
+table.t td{padding:12px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+table.t tr:last-child td{border-bottom:none}
+table.t tr.click{cursor:pointer}
+table.t tr.click:hover td{background:rgba(0,229,200,.04)} .th-staff table.t tr.click:hover td{background:var(--surface2)}
+table.t td.n,table.t th.n{text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px}
+.scroll table.t{min-width:520px}
+.scroll{overflow-x:auto;border-radius:12px;border:1px solid var(--border)}
+.muted{color:var(--muted)} .small{font-size:12px}
+.empty{text-align:center;color:var(--muted);padding:28px 8px;font-size:13px}
+.err{color:var(--bad);font-size:12px;margin-top:10px;overflow-wrap:anywhere;background:var(--bad-bg);border:1px solid rgba(192,57,43,.2);padding:10px 14px;border-radius:10px}
+.err:empty{display:none}
+.okmsg{color:var(--ok);font-size:13px;margin-top:6px}
+
+/* ---- Modal: karyawan .modal (staf) / admin .modal-box ---- */
+.modal{position:fixed;inset:0;background:rgba(240,239,233,.98);z-index:500;display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(8px)}
+.sheet{background:var(--surface);width:100%;max-width:600px;max-height:94vh;overflow:auto;border-radius:24px 24px 0 0;padding:0 18px calc(24px + env(safe-area-inset-bottom));border:1px solid var(--border)}
+.th-staff .sheet{background:transparent;border:0;max-height:100vh;height:100%;border-radius:0}
+.sheet .hd{position:sticky;top:0;background:var(--surface);padding:16px 0 12px;display:flex;gap:12px;align-items:flex-start;z-index:2;border-bottom:1px solid var(--border);margin-bottom:12px}
+.th-staff .sheet .hd{background:rgba(240,239,233,.98)}
+.sheet .hd h2{margin:0;flex:1;overflow-wrap:anywhere;font-family:'Syne',sans-serif;font-size:18px;font-weight:700;text-transform:none;letter-spacing:0;color:var(--text)}
+.sheet .hd .btn,.sheet .hd .btn.sec{min-height:36px;width:36px;padding:0;background:var(--surface2);color:var(--text);border:1px solid var(--border);box-shadow:none;border-radius:10px;font-size:18px}
+.kv{display:grid;grid-template-columns:110px 1fr;gap:8px 10px;font-size:13px}
+.kv dt{color:var(--muted);font-size:12px} .kv dd{margin:0;overflow-wrap:anywhere;white-space:pre-wrap;font-weight:600}
+.thumbs{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.thumbs .th{width:84px;height:84px;border-radius:12px;border:1px solid var(--border);background:var(--surface2);overflow:hidden;position:relative;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted)}
+.thumbs img{width:100%;height:100%;object-fit:cover;display:block}
+.thumbs .x{position:absolute;top:2px;right:2px;background:rgba(0,0,0,.65);color:#fff;border:0;border-radius:50%;width:24px;height:24px;line-height:24px;font-size:14px;cursor:pointer;padding:0}
+.hist{border-left:2px solid var(--border);margin-left:6px;padding-left:12px}
+.hist .it{margin-bottom:12px;font-size:13px;overflow-wrap:anywhere}
+
+/* ---- Toast: karyawan (atas-tengah) / admin (kanan-bawah) ---- */
+.toast{position:fixed;top:72px;left:50%;transform:translateX(-50%);background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:14px;padding:11px 20px;font-size:13px;font-weight:600;z-index:9999;max-width:90vw;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.15);border-color:rgba(45,122,74,.3);color:var(--success)}
+.toast.bad{border-color:rgba(192,57,43,.3);color:var(--rose)}
+
+/* ---- Login: .auth-screen (karyawan) ---- */
+.auth-screen{min-height:100vh;max-width:480px;margin:0 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;gap:28px}
+.auth-logo{text-align:center}
+.auth-logo h1{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;letter-spacing:-1px}
+.auth-logo p{color:var(--muted);font-size:13px;margin-top:4px}
+.auth-card{background:var(--surface);border:1px solid var(--border);border-radius:24px;padding:28px;width:100%;box-shadow:var(--glow)}
+.auth-card h2{font-family:'Syne',sans-serif;font-size:20px;font-weight:700;margin:0 0 4px;text-transform:none;letter-spacing:0;color:var(--text)}
+.auth-card>p{color:var(--muted);font-size:13px;margin-bottom:24px}
+.spin{display:inline-block;width:16px;height:16px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-3px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.big{font-family:'Syne',sans-serif;font-size:44px;font-weight:800;line-height:1}
+.comp{display:grid;grid-template-columns:1fr auto;gap:2px 10px;font-size:13px;align-items:center}
+.comp .bar{grid-column:1 / -1;margin-bottom:8px}
+.itemcard{border:1px solid var(--border);border-radius:16px;padding:14px;background:var(--surface)}
+.itemcard.done{border-color:rgba(45,122,74,.35);background:var(--ok-bg)}
+.itemcard .hd2{display:flex;justify-content:space-between;align-items:center;margin-bottom:2px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:420px){.two.keep{grid-template-columns:1fr}}
+
+.staff-top{padding:18px 18px 0;display:flex;flex-direction:column;gap:14px}
+.th-staff #main{padding-top:14px}
+
+.role-admin .app{max-width:980px}
+@media(min-width:720px){.kpis{grid-template-columns:repeat(4,1fr)}}
+.role-admin nav.tabs button{font-size:12px;padding:0 4px}
+</style>
+</head>
+<body class="th-staff">
+<div id="app"></div>
+<div id="modalRoot"></div>
+<script>
+(function () {
+  'use strict';
+  var SYSTEM_NAME = <?= JSON.stringify(systemName) ?>;
+  var STORE = 'spt_code';
+
+  /* ---------- util ---------- */
+  function $(s, el) { return (el || document).querySelector(s); }
+  function h(tag, attrs) {
+    var el = document.createElement(tag);
+    if (attrs) Object.keys(attrs).forEach(function (k) {
+      var v = attrs[k];
+      if (v === null || v === undefined || v === false) return;
+      if (k === 'class') el.className = v;
+      else if (k === 'text') el.textContent = v;
+      else if (k.slice(0, 2) === 'on') el.addEventListener(k.slice(2), v);
+      else if (k === 'value') el.value = v;
+      else el.setAttribute(k, v === true ? '' : v);
+    });
+    for (var i = 2; i < arguments.length; i++) add(el, arguments[i]);
+    return el;
+  }
+  function add(el, c) {
+    if (c === null || c === undefined || c === false) return;
+    if (Array.isArray(c)) { c.forEach(function (x) { add(el, x); }); return; }
+    el.appendChild(typeof c === 'object' ? c : document.createTextNode(String(c)));
+  }
+  function clear(el) { while (el.firstChild) el.removeChild(el.firstChild); return el; }
+  function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { return null; } }
+  var MON = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+  function dmy(s) { if (!s) return '-'; var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s); return m ? (+m[3]) + ' ' + MON[+m[2] - 1] + ' ' + m[1] : s; }
+  function dmyT(s) { if (!s) return '-'; var m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}:\d{2})/.exec(s); return m ? (+m[3]) + ' ' + MON[+m[2] - 1] + ' ' + m[1] + ' ' + m[4] : s; }
+  function pct(x) { return x === null || x === undefined ? '-' : Math.round(x * 100) + '%'; }
+  function num(x, d) { return x === null || x === undefined ? '-' : (Math.round(x * Math.pow(10, d)) / Math.pow(10, d)).toString().replace('.', ','); }
+  function uid() { return 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
+  function dur(d) { var a = Math.abs(d); if (a < 1) { var hr = Math.max(1, Math.round(a * 24)); return hr + ' jam'; } return Math.floor(a) + ' hari'; }
+  function statusKey(s) { return s === 'IN PROGRESS' ? 'PROGRESS' : s; }
+
+  /* ---------- API ---------- */
+  var S = { code: '', meta: null, tab: '', busy: 0, lastTasks: null };
+  function call(action, payload) {
+    return new Promise(function (resolve, reject) {
+      if (!window.google || !google.script || !google.script.run) { reject(new Error('Halaman harus dibuka dari link web app.')); return; }
+      google.script.run
+        .withSuccessHandler(function (txt) {
+          var r; try { r = JSON.parse(txt); } catch (e) { reject(new Error('Respons server tidak valid.')); return; }
+          if (r.ok) resolve(r.data); else reject(new Error(r.error || 'Gagal.'));
+        })
+        .withFailureHandler(function (e) { reject(new Error('Koneksi gagal: ' + (e && e.message ? e.message : e))); })
+        .webApi(S.code, action, JSON.stringify(payload || {}));
+    });
+  }
+  var toastT;
+  function toast(msg, bad) {
+    var old = $('.toast'); if (old) old.remove();
+    var t = h('div', { class: 'toast' + (bad ? ' bad' : ''), role: 'status', text: msg }); document.body.appendChild(t);
+    clearTimeout(toastT); toastT = setTimeout(function () { t.remove(); }, bad ? 6500 : 3200);
+  }
+  function busy(btn, on, label) {
+    if (!btn) return;
+    if (on) { btn._t = btn.textContent; clear(btn); btn.appendChild(h('span', { class: 'spin' })); btn.appendChild(document.createTextNode(' ' + (label || 'Memproses...'))); btn.disabled = true; }
+    else { btn.textContent = btn._t || btn.textContent; btn.disabled = false; }
+  }
+
+  /* ---------- login (UI: ICS .auth-screen) ---------- */
+  function setTheme(role) { document.body.className = 'th-staff' + (role === 'admin' ? ' role-admin' : ''); }
+  function eyeToggle(inp) {
+    return h('button', { type: 'button', 'aria-label': 'Tampilkan kode', style: 'position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px;padding:4px;line-height:1',
+      onclick: function () { inp.type = inp.type === 'password' ? 'text' : 'password'; } }, '👁️');
+  }
+  function renderLogin(msg) {
+    setTheme('staff'); stopClock();
+    var app = clear($('#app'));
+    var inp = h('input', { type: 'password', id: 'code', autocomplete: 'off', autocapitalize: 'characters', placeholder: 'XXXX-XXXX', 'aria-label': 'Kode akses', style: 'padding-right:46px' });
+    var err = h('div', { class: 'err', role: 'alert', text: msg || '' });
+    var btn = h('button', { class: 'btn block', type: 'submit', style: 'margin-top:4px' }, 'Masuk →');
+    var form = h('form', { class: 'auth-card', onsubmit: function (e) {
+      e.preventDefault(); var c = inp.value.trim(); if (!c) return;
+      busy(btn, true, 'Memeriksa...'); S.code = c; err.textContent = '';
+      call('login').then(function (meta) { store(STORE, c); start(meta); })
+        .catch(function (x) { busy(btn, false); err.textContent = x.message; S.code = ''; });
+    } }, h('h2', { text: 'Masuk ke Akun' }), h('p', { text: 'Gunakan kode akses pribadi dari admin' }),
+      h('div', { class: 'fg', style: 'margin-bottom:16px' }, h('label', { class: 'f', for: 'code', text: 'Kode akses', style: 'margin-top:0' }), h('div', { style: 'position:relative' }, inp, eyeToggle(inp))), btn, err);
+    app.appendChild(h('div', { class: 'auth-screen' },
+      h('div', { class: 'auth-logo' }, h('h1', { text: 'TASK ICS' }), h('p', { text: 'INNOVATIVE CONSTRUCTION SOLUTIONS' })), form));
+    setTimeout(function () { inp.focus(); }, 50);
+  }
+  function logout() { store(STORE, null); S.code = ''; S.meta = null; renderLogin(); }
+
+  /* ---------- jam (pill karyawan / lclock admin) ---------- */
+  var clockT = null;
+  function stopClock() { if (clockT) { clearInterval(clockT); clockT = null; } }
+  function startClock() {
+    stopClock();
+    function pad(n) { return n < 10 ? '0' + n : '' + n; }
+    function tick() {
+      var d = new Date(), t = pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+      ['hclock', 'adm-clock'].forEach(function (id) { var e = document.getElementById(id); if (e) e.textContent = t; });
+      var dl = document.getElementById('date-lbl'); if (dl) dl.textContent = d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    }
+    tick(); clockT = setInterval(tick, 1000);
+  }
+
+  /* ---------- shell (UI: karyawan.html utk staf, admin.html utk admin) ---------- */
+  var TABS = { admin: [['monitor', 'Monitor', '📊'], ['tasks', 'Tugas', '📋'], ['input', 'Input Tugas', '➕'], ['report', 'Laporan', '⭐']], staff: [['tasks', 'Tugas Saya', '☰'], ['report', 'Laporan', '★']] };
+  var TITLES = { monitor: 'Monitor', tasks: 'Tugas', input: 'Input Tugas', report: 'Laporan' };
+  function initial(n) { return (String(n || '?').trim().charAt(0) || '?').toUpperCase(); }
+  function start(meta) {
+    S.meta = meta; var role = meta.user.role; setTheme(role);
+    var app = clear($('#app'));
+    var main = h('main', { id: 'main' });
+    var nav = h('nav', { class: 'tabs', role: 'tablist' }, TABS[role].map(function (t) {
+      return h('button', { role: 'tab', 'data-tab': t[0], onclick: function () { show(t[0]); } }, t[1]);
+    }));
+    var reload = function () { show(S.tab, true); };
+    var hd = h('header', { class: 'top' }, h('div', { class: 'header-brand' }, 'TASK ', h('span', { style: 'color:var(--amber)', text: 'ICS' })),
+      h('div', { class: 'hdr' }, h('div', { class: 'clock-pill', id: 'hclock', text: '--:--:--' }),
+        h('button', { class: 'btn-out', 'aria-label': 'Muat ulang', onclick: reload }, '↻'), h('button', { class: 'btn-out', onclick: logout }, 'Keluar')));
+    var prof = h('div', { class: 'profile-card' }, h('div', { class: 'av', text: initial(meta.user.name) }),
+      h('div', { class: 'pi' }, h('div', { class: 'pname', text: meta.user.name }), h('div', { class: 'pdept', text: role === 'admin' ? 'Admin · Pemberi tugas' : 'Staf · Penanggung jawab tugas' }), h('div', { class: 'pid', text: meta.systemName })));
+    app.appendChild(h('div', { class: 'app' }, hd, h('div', { class: 'staff-top' }, prof, nav), main));
+    startClock();
+    show(TABS[role][0][0]);
+  }
+  function show(tab, force) {
+    S.tab = tab;
+    Array.prototype.forEach.call(document.querySelectorAll('nav.tabs button'), function (b) { b.setAttribute('aria-selected', b.getAttribute('data-tab') === tab ? 'true' : 'false'); });
+            var main = clear($('#main')); window.scrollTo(0, 0);
+    ({ monitor: viewMonitor, tasks: viewTasks, input: viewInput, report: viewReport })[tab](main, force);
+  }
+  function loading(el) { el.appendChild(h('div', { class: 'empty' }, h('span', { class: 'spin' }), ' Memuat...')); }
+  function failBox(el, e, retry) { clear(el); el.appendChild(h('div', { class: 'empty' }, h('div', { class: 'err', text: e.message }), h('p'), h('button', { class: 'btn sec', onclick: retry }, 'Coba lagi'))); }
+
+  /* ---------- task card ---------- */
+  function taskCard(t, onOpen) {
+    var closed = t.status === 'COMPLETED' || t.status === 'CANCELLED';
+    var dl = null;
+    if (closed) dl = h('span', { class: 'dl', text: t.status === 'COMPLETED' ? 'Selesai ' + dmy(t.completion) + (t.timeliness ? ' · ' + t.timeliness.toLowerCase() : '') : 'Dibatalkan' });
+    else if (t.daysLeft !== null) dl = h('span', { class: 'dl ' + (t.daysLeft < 0 ? 'late' : t.daysLeft <= S.meta.dueSoonDays ? 'soon' : ''), text: (t.daysLeft < 0 ? 'Terlambat ' : 'Sisa ') + dur(t.daysLeft) + ' · ' + dmy(t.deadline) });
+    return h('button', { class: 'task', onclick: function () { onOpen(t); } },
+      h('div', { class: 't', text: t.title }),
+      h('div', { class: 'm', text: t.id + ' · ' + t.project + (S.meta.user.role === 'admin' ? ' · ' + t.pic : '') }),
+      h('div', { class: 'r' }, h('span', { class: 'chip ' + statusKey(t.eff), text: t.eff }), dl, h('span', { class: 'pri ' + t.priority, text: t.priority }),
+        t.evidence ? h('span', { class: 'small muted', text: '📷 ' + t.evidence }) : null),
+      h('div', { class: 'r' }, h('div', { class: 'bar' }, h('i', { style: 'width:' + Math.round(t.progress * 100) + '%' })), h('span', { class: 'small muted', text: Math.round(t.progress * 100) + '%' })));
+  }
+  function taskList(box, list, onOpen, emptyMsg) {
+    clear(box);
+    if (!list.length) { box.appendChild(h('div', { class: 'empty', text: emptyMsg || 'Tidak ada tugas.' })); return; }
+    list.forEach(function (t) { box.appendChild(taskCard(t, onOpen)); });
+  }
+
+  /* ---------- Tugas ---------- */
+  var TF = { scope: 'open', q: '', pic: '', project: '' };
+  function viewTasks(main, force) {
+    var isAdmin = S.meta.user.role === 'admin';
+    var list = h('div', { class: 'stack' }); var info = h('div', { class: 'small muted' });
+    var scopeBtns = [['open', 'Berjalan'], ['done', 'Selesai'], ['all', 'Semua']].map(function (s) {
+      return h('button', { 'aria-pressed': TF.scope === s[0] ? 'true' : 'false', onclick: function () { TF.scope = s[0]; viewTasks(clear(main)); } }, s[1]);
+    });
+    var q = h('input', { type: 'search', placeholder: 'Cari judul / ID / proyek', value: TF.q, 'aria-label': 'Cari', onchange: function () { TF.q = q.value; load(); } });
+    var filters = [h('div', { class: 'seg' }, scopeBtns)];
+    var picSel, prjSel;
+    if (isAdmin) {
+      picSel = h('select', { 'aria-label': 'Filter PIC', onchange: function () { TF.pic = picSel.value; load(); } }, h('option', { value: '', text: 'Semua staf' }), S.meta.allStaff.map(function (n) { return h('option', { value: n, text: n }); }));
+      prjSel = h('select', { 'aria-label': 'Filter proyek', onchange: function () { TF.project = prjSel.value; load(); } }, h('option', { value: '', text: 'Semua proyek' }), S.meta.projects.map(function (n) { return h('option', { value: n, text: n }); }));
+      picSel.value = TF.pic; prjSel.value = TF.project;
+      filters.push(h('div', { class: 'two' }, picSel, prjSel));
+    }
+    main.appendChild(h('div', { class: 'stack', style: 'margin-top:14px' }, filters, q, info, list));
+    function load() {
+      clear(list); loading(list);
+      call('tasks', { scope: TF.scope, q: TF.q, pic: TF.pic, project: TF.project }).then(function (d) {
+        S.lastTasks = d.tasks;
+        info.textContent = d.total + ' tugas' + (d.truncated ? ' (menampilkan 200 pertama - persempit filter)' : '');
+        taskList(list, d.tasks, function (t) { openTask(t.id, load); }, TF.scope === 'open' ? 'Tidak ada tugas berjalan.' : 'Tidak ada tugas.');
+      }).catch(function (e) { failBox(list, e, load); });
+    }
+    load();
+  }
+
+  /* ---------- Monitor (admin) ---------- */
+  var MF = { from: '', to: '' };
+  function viewMonitor(main) {
+    var body = h('div');
+    var from = h('input', { type: 'date', value: MF.from, 'aria-label': 'Deadline dari' }), to = h('input', { type: 'date', value: MF.to, 'aria-label': 'Deadline sampai' });
+    var apply = h('button', { class: 'btn sec', onclick: function () { MF.from = from.value; MF.to = to.value; load(); } }, 'Terapkan');
+    main.appendChild(h('div', { class: 'card', style: 'margin-top:14px' }, h('div', { class: 'small muted', text: 'Periode berdasarkan Deadline (kosongkan = semua)' }),
+      h('div', { class: 'row wrapr', style: 'margin-top:6px' }, h('div', { class: 'grow' }, from), h('div', { class: 'grow' }, to), apply)));
+    main.appendChild(body);
+    function load() {
+      clear(body); loading(body);
+      call('dashboard', MF).then(function (d) { clear(body); renderMonitor(body, d); }).catch(function (e) { failBox(body, e, load); });
+    }
+    load();
+  }
+  function kpi(v, l, cls) { return h('div', { class: 'card kpi ' + (cls || '') }, h('div', { class: 'v', text: v }), h('div', { class: 'l', text: l })); }
+  function renderMonitor(body, d) {
+    var k = d.kpi;
+    body.appendChild(h('div', { class: 'small muted', style: 'margin:12px 0 6px', text: 'Diperbarui ' + dmyT(d.at) }));
+    body.appendChild(h('div', { class: 'grid kpis' }, kpi(k.total, 'Total tugas'), kpi(k.inProgress + k.newCount, 'Berjalan (New + In Progress)'), kpi(k.pending, 'Pending'),
+      kpi(k.overdue, 'Overdue', k.overdue ? 'bad' : ''), kpi(k.completed, 'Selesai', 'ok'), kpi(pct(k.completionRate), 'Completion rate'), kpi(pct(k.onTimeRate), 'Selesai tepat waktu'), kpi(k.cancelled, 'Dibatalkan')));
+    var open = function (t) { openTask(t.id, function () { show('monitor', true); }); };
+    var sect = function (title, list, total, emptyMsg) {
+      body.appendChild(h('h2', { text: title + ' (' + total + ')' }));
+      var box = h('div', { class: 'stack' }); taskList(box, list, open, emptyMsg); body.appendChild(box);
+      if (total > list.length) body.appendChild(h('div', { class: 'small muted', style: 'margin-top:6px', text: '+ ' + (total - list.length) + ' lainnya - lihat tab Tugas' }));
+    };
+    sect('Overdue', d.overdue, d.overdueTotal, 'Tidak ada tugas overdue.');
+    sect('Mendekati deadline', d.dueSoon, d.dueSoonTotal, 'Tidak ada yang mendekati deadline.');
+    body.appendChild(h('h2', { text: 'Kinerja staf' }));
+    var rows = d.staff.filter(function (s) { return s.total > 0; }).sort(function (a, b) { return (b.score || -1) - (a.score || -1); });
+    body.appendChild(h('div', { class: 'card' }, rows.length ? h('div', { class: 'scroll' }, h('table', { class: 't' },
+      h('thead', null, h('tr', null, ['Staf', 'Tugas', 'Selesai', 'Overdue', 'On-time*', 'Skor'].map(function (x, i) { return h('th', { class: i ? 'n' : '', text: x }); }))),
+      h('tbody', null, rows.map(function (s) {
+        return h('tr', { class: 'click', onclick: function () { RF.staff = s.name; show('report'); } }, h('td', { text: s.name }), h('td', { class: 'n', text: s.total }), h('td', { class: 'n', text: s.completed }),
+          h('td', { class: 'n', text: s.overdue, style: s.overdue ? 'color:var(--bad);font-weight:650' : '' }), h('td', { class: 'n', text: pct(s.onTimeAdj) }), h('td', { class: 'n', style: 'font-weight:700', text: num(s.score, 1) }));
+      })))) : h('div', { class: 'empty', text: 'Belum ada data pada periode ini.' }), h('div', { class: 'small muted', style: 'margin-top:8px', text: '*On-time disesuaikan (keterlambatan excused tidak dihitung). Ketuk baris untuk laporan staf.' })));
+    body.appendChild(h('h2', { text: 'Proyek' }));
+    var pr = d.projects.filter(function (p) { return p.total > 0 || p.active; });
+    body.appendChild(h('div', { class: 'card' }, h('div', { class: 'scroll' }, h('table', { class: 't' },
+      h('thead', null, h('tr', null, ['Proyek', 'Tugas', 'Selesai', 'Belum', 'Overdue', 'Selesai %'].map(function (x, i) { return h('th', { class: i ? 'n' : '', text: x }); }))),
+      h('tbody', null, pr.map(function (p) {
+        return h('tr', { onclick: function () { TF.project = p.name; TF.scope = 'open'; TF.pic = ''; TF.q = ''; show('tasks'); }, class: 'click' }, h('td', null, h('div', { text: p.name }), h('div', { class: 'small muted', text: p.pics.join(', ') })),
+          h('td', { class: 'n', text: p.total }), h('td', { class: 'n', text: p.completed }), h('td', { class: 'n', text: p.open }),
+          h('td', { class: 'n', text: p.overdue, style: p.overdue ? 'color:var(--bad);font-weight:650' : '' }), h('td', { class: 'n', text: pct(p.rate) }));
+      }))))));
+  }
+
+  /* ---------- Laporan ---------- */
+  var RF = { staff: '', from: '', to: '' };
+  function viewReport(main) {
+    var isAdmin = S.meta.user.role === 'admin';
+    var body = h('div'); var ctl = h('div', { class: 'card stack', style: 'margin-top:14px' });
+    var from = h('input', { type: 'date', value: RF.from, 'aria-label': 'Deadline dari' }), to = h('input', { type: 'date', value: RF.to, 'aria-label': 'Deadline sampai' });
+    var sel = null;
+    if (isAdmin) {
+      sel = h('select', { 'aria-label': 'Pilih staf', onchange: function () { RF.staff = sel.value; load(); } }, h('option', { value: '', text: 'Pilih staf...' }), S.meta.allStaff.map(function (n) { return h('option', { value: n, text: n }); }));
+      sel.value = RF.staff; ctl.appendChild(sel);
+    }
+    ctl.appendChild(h('div', { class: 'row wrapr' }, h('div', { class: 'grow' }, from), h('div', { class: 'grow' }, to),
+      h('button', { class: 'btn sec', onclick: function () { RF.from = from.value; RF.to = to.value; load(); } }, 'Terapkan')));
+    main.appendChild(ctl); main.appendChild(body);
+    function load() {
+      clear(body);
+      if (isAdmin && !RF.staff) { body.appendChild(h('div', { class: 'empty', text: 'Pilih staf untuk melihat laporan.' })); return; }
+      loading(body);
+      call('report', RF).then(function (d) { clear(body); renderReport(body, d); }).catch(function (e) { failBox(body, e, load); });
+    }
+    load();
+  }
+  function renderReport(body, d) {
+    var s = d.stats; var w = d.weights;
+    body.appendChild(h('h2', { text: d.name }));
+    if (!s.total) { body.appendChild(h('div', { class: 'empty', text: 'Belum ada tugas pada periode ini.' })); return; }
+    var comp = function (label, val, weight, shown) {
+      return [h('span', { text: label + ' (bobot ' + Math.round(weight * 100) + '%)' }), h('b', { text: shown }), h('div', { class: 'bar' }, h('i', { style: 'width:' + Math.round((val || 0) * 100) + '%' }))];
+    };
+    body.appendChild(h('div', { class: 'card' }, h('div', { class: 'row' }, h('div', null, h('div', { class: 'big', text: num(s.score, 1) }), h('div', { class: 'small muted', text: 'Skor performa (0-100)' })),
+      h('div', { class: 'grow small muted', style: 'text-align:right', text: s.total + ' tugas · ' + s.completed + ' selesai' + (s.overdue ? ' · ' + s.overdue + ' overdue' : '') })),
+      h('div', { class: 'comp', style: 'margin-top:14px' },
+        comp('Completion rate', s.completionRate, w[0], pct(s.completionRate)), comp('Tepat waktu (disesuaikan)', s.onTimeAdj, w[1], pct(s.onTimeAdj)),
+        comp('Kualitas (penilaian admin)', s.avgQuality === null ? 0 : s.avgQuality / 5, w[2], s.avgQuality === null ? 'belum dinilai' : num(s.avgQuality, 1) + ' / 5'),
+        comp('Konsistensi update', s.consistency, w[3], pct(s.consistency))),
+      h('div', { class: 'small muted', text: 'Komponen yang belum ada datanya dikeluarkan dari skor.' })));
+    var rows = [['Baru', s.newCount], ['Sedang dikerjakan', s.inProgress], ['Pending', s.pending], ['Overdue (semua)', s.overdue], ['Overdue (kesalahan staf)', s.overdueStaff],
+      ['Selesai tepat waktu', s.onTime], ['Selesai terlambat', s.late], ['Terlambat (excused)', s.lateExcused], ['Rata-rata penyelesaian', s.avgDays === null ? '-' : num(s.avgDays, 1) + ' hari']];
+    body.appendChild(h('div', { class: 'card', style: 'margin-top:10px' }, h('table', { class: 't' }, h('tbody', null, rows.map(function (r) { return h('tr', null, h('td', { text: r[0] }), h('td', { class: 'n', text: r[1] })); })))));
+    body.appendChild(h('h2', { text: 'Terakhir selesai' }));
+    var box = h('div', { class: 'stack' }); taskList(box, d.recent, function (t) { openTask(t.id); }, 'Belum ada tugas selesai.'); body.appendChild(box);
+  }
+
+  /* ---------- Input tugas (admin) ---------- */
+  var DRAFT = [];
+  var lastSend = { hash: '', reqId: '' };
+  function newItem(prev) { return { project: prev ? prev.project : '', pic: prev ? prev.pic : '', title: '', desc: '', priority: S.meta.priorities.indexOf('Normal') >= 0 ? 'Normal' : S.meta.priorities[0], start: '', deadline: '', parent: '', notes: '', result: null }; }
+  function viewInput(main) {
+    if (!DRAFT.length) DRAFT.push(newItem());
+    var list = h('div', { class: 'stack', style: 'margin-top:14px' }); var msg = h('div'); var send = h('button', { class: 'btn block' }, 'Kirim semua tugas');
+    function draw() {
+      clear(list);
+      DRAFT.forEach(function (it, i) { list.appendChild(itemCard(it, i, draw)); });
+    }
+    send.addEventListener('click', function () {
+      var pending = DRAFT.filter(function (x) { return !x.result || !x.result.ok; });
+      if (!pending.length) { DRAFT = [newItem()]; draw(); return; }
+      var payload = pending.map(function (x) { return { project: x.project, pic: x.pic, title: x.title, desc: x.desc, priority: x.priority, start: x.start, deadline: x.deadline, parent: x.parent, notes: x.notes }; });
+      var hash = JSON.stringify(payload);
+      if (lastSend.hash !== hash) lastSend = { hash: hash, reqId: uid() };
+      busy(send, true, 'Mengirim...'); clear(msg);
+      call('createTasks', { items: payload, reqId: lastSend.reqId }).then(function (d) {
+        busy(send, false); lastSend = { hash: '', reqId: '' };
+        pending.forEach(function (it, k) { it.result = d.results[k]; });
+        var failed = pending.filter(function (x) { return !x.result.ok; }).length;
+        draw();
+        if (failed) msg.appendChild(h('div', { class: 'err', text: d.created + ' tugas terkirim, ' + failed + ' perlu diperbaiki (lihat pesan merah di kartu).' }));
+        else {
+          toast(d.created + ' tugas terkirim' + (d.mail.skipped ? '' : ' · email ' + d.mail.sent));
+          DRAFT = [newItem()]; draw();
+        }
+        if (d.created && d.mail.failed && d.mail.failed.length) msg.appendChild(h('div', { class: 'err', text: 'Email gagal: ' + d.mail.failed.join('; ') }));
+      }).catch(function (e) { busy(send, false); msg.appendChild(h('div', { class: 'err', text: e.message + ' (aman dikirim ulang: tidak akan terduplikasi)' })); });
+    });
+    main.appendChild(list);
+    main.appendChild(h('div', { class: 'stack', style: 'margin-top:12px' }, h('button', { class: 'btn sec block', onclick: function () { DRAFT.push(newItem(DRAFT[DRAFT.length - 1])); draw(); window.scrollTo(0, document.body.scrollHeight); } }, '+ Tambah tugas'), send, msg));
+    draw();
+  }
+  function itemCard(it, i, redraw) {
+    var M = S.meta;
+    if (it.result && it.result.ok) return h('div', { class: 'itemcard done' }, h('b', { text: it.result.id + ' terkirim' }), h('div', { class: 'small', text: it.title + ' · ' + it.pic }));
+    var bind = function (key) { return function (e) { it[key] = e.target.value; }; };
+    var sel = function (key, opts, ph) { var s = h('select', { onchange: bind(key) }, h('option', { value: '', text: ph }), opts.map(function (o) { return h('option', { value: o, text: o }); })); s.value = it[key]; return s; };
+    var title = h('input', { type: 'text', value: it.title, maxlength: 200, oninput: bind('title'), placeholder: 'Judul tugas' });
+    var dl = h('input', { type: 'date', value: it.deadline, oninput: bind('deadline'), min: M.today }); var st = h('input', { type: 'date', value: it.start, oninput: bind('start') });
+    return h('div', { class: 'itemcard' },
+      h('div', { class: 'hd2' }, h('b', { text: 'Tugas ' + (i + 1) }), DRAFT.length > 1 ? h('button', { class: 'ib', style: 'color:var(--muted)', 'aria-label': 'Hapus kartu', onclick: function () { DRAFT.splice(i, 1); redraw(); } }, '✕') : null),
+      h('label', { class: 'f', text: 'Proyek' }), sel('project', M.projects, 'Pilih proyek...'),
+      h('label', { class: 'f', text: 'Ditugaskan ke (PIC)' }), sel('pic', M.staff, 'Pilih staf...'),
+      h('label', { class: 'f', text: 'Judul tugas' }), title,
+      h('label', { class: 'f', text: 'Deskripsi (opsional)' }), h('textarea', { oninput: bind('desc'), maxlength: 2000, text: it.desc }),
+      h('div', { class: 'two keep' }, h('div', null, h('label', { class: 'f', text: 'Prioritas' }), sel('priority', M.priorities, 'Pilih...')), h('div', null, h('label', { class: 'f', text: 'Deadline (sampai akhir hari)' }), dl)),
+      h('div', { class: 'two keep' }, h('div', null, h('label', { class: 'f', text: 'Mulai (opsional)' }), st), h('div', null, h('label', { class: 'f', text: 'Induk Task ID (opsional)' }), h('input', { type: 'text', value: it.parent, oninput: bind('parent'), placeholder: 'TSK-00001', autocapitalize: 'characters' }))),
+      h('label', { class: 'f', text: 'Catatan (opsional)' }), h('input', { type: 'text', value: it.notes, oninput: bind('notes') }),
+      it.result && !it.result.ok ? h('div', { class: 'err' }, it.result.errors.map(function (e) { return h('div', { text: '• ' + e }); })) : null);
+  }
+
+  /* ---------- foto: resize di HP ---------- */
+  function loadBitmap(file) {
+    if (window.createImageBitmap) {
+      return createImageBitmap(file, { imageOrientation: 'from-image' }).catch(function () { return viaImg(file); });
+    }
+    return viaImg(file);
+  }
+  function viaImg(file) {
+    return new Promise(function (res, rej) {
+      var u = URL.createObjectURL(file); var im = new Image();
+      im.onload = function () { URL.revokeObjectURL(u); res(im); }; im.onerror = function () { URL.revokeObjectURL(u); rej(new Error('Foto tidak bisa dibaca (' + file.name + '). Gunakan JPG/PNG.')); };
+      im.src = u;
+    });
+  }
+  function shrink(file) {
+    return loadBitmap(file).then(function (img) {
+      var w = img.width || img.naturalWidth, hgt = img.height || img.naturalHeight; var MAX = 1600;
+      var sc = Math.min(1, MAX / Math.max(w, hgt)); var cw = Math.round(w * sc), ch = Math.round(hgt * sc);
+      var cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
+      var cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, cw, ch); cx.drawImage(img, 0, 0, cw, ch);
+      return new Promise(function (res, rej) {
+        var q = 0.82;
+        (function go() {
+          cv.toBlob(function (b) {
+            if (!b) { rej(new Error('Gagal memproses foto.')); return; }
+            if (b.size > 1500000 && q > 0.5) { q -= 0.12; go(); return; }
+            var r = new FileReader(); r.onload = function () { res({ blob: b, data: String(r.result).split(',')[1], url: URL.createObjectURL(b) }); }; r.onerror = function () { rej(new Error('Gagal membaca foto.')); }; r.readAsDataURL(b);
+          }, 'image/jpeg', q);
+        })();
+      });
+    });
+  }
+
+  /* ---------- detail tugas ---------- */
+  function openTask(id, onClose) {
+    var root = $('#modalRoot'); var isAdmin = S.meta.user.role === 'admin';
+    var content = h('div', { class: 'stack' });
+    var title = h('h2', { text: id });
+    function close() { clear(root); document.body.style.overflow = ''; if (onClose) onClose(); }
+    var sheet = h('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Detail tugas' }, h('div', { class: 'hd' }, title, h('button', { class: 'ib', style: 'color:var(--ink)', 'aria-label': 'Tutup', onclick: close }, '✕')), content);
+    var modal = h('div', { class: 'modal', onclick: function (e) { if (e.target === modal) close(); } }, sheet);
+    clear(root).appendChild(modal); document.body.style.overflow = 'hidden';
+    function load() {
+      clear(content); loading(content);
+      call('task', { taskId: id }).then(function (d) { clear(content); title.textContent = d.task.title; renderTask(content, d, load); }).catch(function (e) { failBox(content, e, load); });
+    }
+    load();
+  }
+  function renderTask(box, d, reload) {
+    var t = d.task; var isAdmin = S.meta.user.role === 'admin'; var closed = t.status === 'COMPLETED' || t.status === 'CANCELLED';
+    var dd = function (k, v) { return v ? [h('dt', { text: k }), h('dd', { text: v })] : null; };
+    box.appendChild(h('div', { class: 'card' },
+      h('div', { class: 'row wrapr', style: 'margin-bottom:10px' }, h('span', { class: 'chip ' + statusKey(t.eff), text: t.eff }), h('span', { class: 'pri ' + t.priority, text: 'Prioritas ' + t.priority }), h('span', { class: 'small muted', text: t.id })),
+      h('dl', { class: 'kv', style: 'margin:0' }, dd('Proyek', t.project), dd('PIC', t.pic), dd('Diberikan oleh', t.createdBy), dd('Deskripsi', t.desc), dd('Mulai', dmy(t.start)), dd('Deadline', dmy(t.deadline) + ' (akhir hari)'),
+        dd('Progres', Math.round(t.progress * 100) + '%'), dd('Terakhir update', dmyT(t.lastUpdated)), dd('Selesai', t.completion ? dmyT(t.completion) + (t.timeliness ? ' · ' + t.timeliness : '') : ''),
+        dd('Alasan tunda', t.delayReason), dd('Hasil', t.resultNotes), dd('Induk', t.parent), dd('Kategori tunda', t.delayCategory), dd('Penilaian', t.quality))));
+    // foto
+    var ph = h('div', { class: 'thumbs' });
+    d.evidence.forEach(function (e) {
+      var th = h('button', { class: 'th', 'aria-label': 'Lihat foto ' + e.id, title: e.by + ' · ' + dmyT(e.at) }, '📷 lihat');
+      th.addEventListener('click', function () {
+        if (th._img) { showImage(th._img, e); return; }
+        th.textContent = '...';
+        call('evidenceImage', { evidenceId: e.id }).then(function (r) { var u = 'data:' + r.mime + ';base64,' + r.data; th._img = u; clear(th).appendChild(h('img', { src: u, alt: 'Foto bukti' })); })
+          .catch(function (x) { th.textContent = 'gagal'; toast(x.message, true); });
+      });
+      ph.appendChild(th);
+    });
+    box.appendChild(h('div', { class: 'card' }, h('h3', { text: 'Foto bukti (' + d.evidence.length + ')' }), d.evidence.length ? ph : h('div', { class: 'small muted', style: 'margin-top:6px', text: 'Belum ada foto.' })));
+    // form update
+    box.appendChild(updateForm(t, reload));
+    if (isAdmin) box.appendChild(rateForm(t, reload));
+    // riwayat
+    box.appendChild(h('div', { class: 'card' }, h('h3', { text: 'Riwayat' }), h('div', { class: 'hist', style: 'margin-top:10px' },
+      d.history.length ? d.history.map(function (x) {
+        return h('div', { class: 'it' }, h('div', { class: 'small muted', text: dmyT(x.at) + ' · ' + x.by }), h('div', null, h('b', { text: (x.from || '-') + ' → ' + x.to }), ' · ' + Math.round(x.progress * 100) + '%'),
+          x.notes ? h('div', { text: x.notes }) : null, x.delay ? h('div', { class: 'muted', text: 'Alasan tunda: ' + x.delay }) : null);
+      }) : h('div', { class: 'small muted', text: 'Belum ada update.' }), h('div', { class: 'it small muted', text: 'Dibuat ' + dmyT(t.createdAt) + ' oleh ' + t.createdBy }))));
+  }
+  function showImage(src, e) {
+    var m = h('div', { class: 'modal', style: 'z-index:90;align-items:center', onclick: function () { m.remove(); } }, h('div', { style: 'max-width:96vw;max-height:92vh;text-align:center' },
+      h('img', { src: src, alt: 'Foto bukti', style: 'max-width:96vw;max-height:84vh;border-radius:10px;display:block;margin:0 auto' }), h('div', { style: 'color:#fff;margin-top:8px;font-size:13px', text: e.by + ' · ' + dmyT(e.at) + (e.desc ? ' · ' + e.desc : '') })));
+    document.body.appendChild(m);
+  }
+  function updateForm(t, reload) {
+    var M = S.meta; var isAdmin = M.user.role === 'admin'; var closed = t.status === 'COMPLETED' || t.status === 'CANCELLED';
+    var opts = M.statuses.filter(function (s) { return s !== 'NEW' && (isAdmin || s !== 'CANCELLED'); });
+    var status = h('select', { 'aria-label': 'Status baru' }, opts.map(function (s) { return h('option', { value: s, text: s }); }));
+    status.value = closed ? t.status : (opts.indexOf(t.status) >= 0 ? t.status : 'IN PROGRESS');
+    var prog = h('input', { type: 'range', min: 0, max: 100, step: 5, value: Math.round(t.progress * 100), 'aria-label': 'Progres' }); var progL = h('b', { text: Math.round(t.progress * 100) + '%' });
+    prog.addEventListener('input', function () { progL.textContent = prog.value + '%'; });
+    status.addEventListener('change', function () { if (status.value === 'COMPLETED') { prog.value = 100; progL.textContent = '100%'; } sync(); });
+    var notes = h('textarea', { placeholder: 'Apa yang sudah dikerjakan / hasilnya', maxlength: 1500 });
+    var delay = h('textarea', { placeholder: 'Wajib bila Pending / lewat deadline', maxlength: 500 });
+    var rev = h('input', { type: 'date', min: M.today });
+    var delayBox = h('div', null, h('label', { class: 'f', text: 'Alasan tertunda' }), delay, h('label', { class: 'f', text: 'Perkiraan selesai baru (opsional)' }), rev);
+    function sync() { delayBox.hidden = !(status.value === 'PENDING' || (t.daysLeft !== null && t.daysLeft < 0 && status.value !== 'CANCELLED')); }
+    var files = []; var thumbs = h('div', { class: 'thumbs' });
+    var pick = h('input', { type: 'file', accept: 'image/*', multiple: true, hidden: true });
+    pick.addEventListener('change', function () {
+      var fl = Array.prototype.slice.call(pick.files); pick.value = '';
+      fl.forEach(function (f) {
+        if (files.length >= 8) { toast('Maksimal 8 foto per pengiriman.', true); return; }
+        var slot = { pending: true }; files.push(slot); drawThumbs();
+        shrink(f).then(function (r) { slot.pending = false; slot.data = r.data; slot.url = r.url; slot.name = f.name; drawThumbs(); })
+          .catch(function (e) { files.splice(files.indexOf(slot), 1); drawThumbs(); toast(e.message, true); });
+      });
+    });
+    function drawThumbs() {
+      clear(thumbs);
+      files.forEach(function (f, i) {
+        thumbs.appendChild(h('div', { class: 'th', style: 'cursor:default' }, f.pending ? h('span', { class: 'spin' }) : h('img', { src: f.url, alt: 'Foto ' + (i + 1) }),
+          h('button', { class: 'x', 'aria-label': 'Hapus foto', onclick: function () { files.splice(i, 1); drawThumbs(); } }, '×')));
+      });
+    }
+    var msg = h('div'); var send = h('button', { class: 'btn block' }, 'Kirim laporan');
+    var reqs = {};
+    send.addEventListener('click', function () {
+      clear(msg);
+      if (files.some(function (f) { return f.pending; })) { msg.appendChild(h('div', { class: 'err', text: 'Tunggu foto selesai diproses.' })); return; }
+      var wantsUpdate = status.value !== t.status || Number(prog.value) !== Math.round(t.progress * 100) || notes.value.trim() || delay.value.trim() || files.length === 0;
+      if (closed && !isAdmin) wantsUpdate = false;
+      if (!wantsUpdate && !files.length) { msg.appendChild(h('div', { class: 'err', text: 'Tidak ada perubahan untuk dikirim.' })); return; }
+      busy(send, true, 'Mengirim...');
+      var done = 0; var total = files.length;
+      var seq = Promise.resolve();
+      files.forEach(function (f, i) {
+        seq = seq.then(function () {
+          if (f.sent) return;
+          busy(send, true, 'Mengunggah foto ' + (i + 1) + '/' + total + '...');
+          f.reqId = f.reqId || uid();
+          return call('uploadPhoto', { taskId: t.id, mime: 'image/jpeg', name: 'foto.jpg', data: f.data, desc: notes.value.trim().slice(0, 200), reqId: f.reqId }).then(function () { f.sent = true; done++; });
+        });
+      });
+      seq = seq.then(function () {
+        if (!wantsUpdate) return null;
+        busy(send, true, 'Menyimpan laporan...');
+        reqs.id = reqs.id || uid();
+        return call('submitUpdate', { taskId: t.id, status: status.value, progress: prog.value, notes: notes.value.trim(), delay: delay.value.trim(), revised: rev.value, reqId: reqs.id });
+      });
+      seq.then(function () { busy(send, false); toast('Laporan terkirim' + (total ? ' · ' + total + ' foto' : '')); reload(); })
+        .catch(function (e) {
+          busy(send, false);
+          var left = files.filter(function (f) { return !f.sent; }).length;
+          msg.appendChild(h('div', { class: 'err', text: e.message + (done ? ' (' + done + ' foto sudah terunggah dan tidak akan diunggah ulang bila Anda menekan Kirim lagi)' : '') }));
+          if (reqs.id && !/Koneksi/.test(e.message)) reqs.id = null;
+          files = files.filter(function (f) { return !f.sent; }); drawThumbs(); void left;
+        });
+    });
+    sync();
+    var head = closed && !isAdmin ? 'Tambah foto bukti' : 'Update / laporan';
+    return h('div', { class: 'card' }, h('h3', { text: head }),
+      closed && !isAdmin ? h('div', { class: 'small muted', style: 'margin-top:4px', text: 'Tugas sudah ' + t.status + '. Anda masih bisa menambah foto.' }) : [
+        h('label', { class: 'f', text: 'Status' }), status,
+        h('label', { class: 'f' }, 'Progres ', progL), prog,
+        h('label', { class: 'f', text: 'Catatan' }), notes, delayBox],
+      h('label', { class: 'f', text: 'Foto bukti' }), thumbs,
+      h('div', { class: 'row', style: 'margin-top:8px' }, h('button', { class: 'btn sec', type: 'button', onclick: function () { pick.click(); } }, '📷 Ambil / pilih foto'), pick, h('span', { class: 'small muted', text: files.length ? '' : 'JPG/PNG, dikecilkan otomatis' })),
+      h('div', { style: 'margin-top:14px' }, send, msg));
+  }
+  function rateForm(t, reload) {
+    var M = S.meta;
+    var dc = h('select', { 'aria-label': 'Delay category' }, h('option', { value: '', text: '(kosong)' }), M.delayCategories.map(function (x) { return h('option', { value: x, text: x }); })); dc.value = t.delayCategory;
+    var q = h('select', { 'aria-label': 'Quality rating' }, h('option', { value: '', text: '(belum dinilai)' }), M.quality.map(function (x) { return h('option', { value: x, text: x }); })); q.value = t.quality;
+    var msg = h('div'); var b = h('button', { class: 'btn sec block' }, 'Simpan penilaian');
+    b.addEventListener('click', function () {
+      clear(msg); busy(b, true, 'Menyimpan...');
+      call('rateTask', { taskId: t.id, delayCategory: dc.value, quality: q.value }).then(function () { busy(b, false); toast('Penilaian tersimpan'); reload(); }).catch(function (e) { busy(b, false); msg.appendChild(h('div', { class: 'err', text: e.message })); });
+    });
+    return h('div', { class: 'card' }, h('h3', { text: 'Penilaian admin' }), h('div', { class: 'small muted', style: 'margin-top:4px', text: 'Kategori tunda menentukan apakah keterlambatan dihitung sebagai kesalahan staf. Kualitas hanya untuk tugas COMPLETED.' }),
+      h('label', { class: 'f', text: 'Kategori keterlambatan' }), dc, h('label', { class: 'f', text: 'Kualitas' }), q, h('div', { style: 'margin-top:12px' }, b, msg));
+  }
+
+  /* ---------- boot ---------- */
+  document.addEventListener('visibilitychange', function () { if (!document.hidden && S.meta && !$('.modal') && (S.tab === 'monitor' || S.tab === 'tasks')) show(S.tab, true); });
+  var saved = store(STORE);
+  if (saved) {
+    S.code = saved; clear($('#app')).appendChild(h('div', { class: 'empty', style: 'margin-top:20vh' }, h('span', { class: 'spin' }), ' Membuka...'));
+    call('login').then(start).catch(function (e) { S.code = ''; if (!/Koneksi/.test(e.message)) store(STORE, null); renderLogin(e.message); });
+  } else renderLogin();
+})();
+</script>
+</body>
+</html>
