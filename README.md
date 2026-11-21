@@ -223,16 +223,25 @@ Tempel `Code.gs` / `Index.html` baru di editor yang sama > Save > **Deploy > Man
 - Disimpan di Drive pemilik script: folder `... Evidence` > subfolder per Task ID. Maks. `MAX_PHOTOS_PER_TASK` (default 20) per tugas.
 - `EVIDENCE_PUBLIC_LINK = YES` (default): siapa pun yang punya link foto bisa melihat (link sulit ditebak). `NO`: hanya akun yang diberi akses Drive.
 - `REQUIRE_EVIDENCE_ON_COMPLETE = YES`: tugas tidak bisa COMPLETED tanpa minimal 1 foto (hanya jalur web).
+- **Foto Sebelum / Sesudah / Lainnya**: form update staf punya 3 slot terpisah (maks. 8 foto per pengiriman). Nama file memuat `SEBELUM` / `SESUDAH`; EVIDENCE LOG kolom *Evidence Description* diawali `[BEFORE]` / `[AFTER]`. Detail tugas menampilkan galeri per kelompok.
+- `REQUIRE_BEFORE_AFTER = YES` (default NO): COMPLETED lewat web wajib punya >=1 foto SEBELUM dan >=1 SESUDAH. Kunci ini ditambah otomatis oleh **Apply Patch 3.1.0**.
+
+### 9.4b Link laporan di email
+- Email penugasan (staf), update progres (admin), dan reminder harian (staf & admin) memuat link: Task ID menjadi link ke detail tugas; tombol *Buka tugas & laporan saya* / *Laporan <staf>* / *Buka monitoring*. Versi teks email memuat URL lengkap.
+- Link membuka web app pada tab/tugas/staf yang dituju, **tetap wajib login kode akses** (kode tidak ada di link). Admin membuka laporan staf terpilih; staf selalu hanya melihat dirinya.
+- Basis URL: `WEB_APP_URL` di SETTINGS (hanya `https://script.google.com/...` diterima), bila kosong URL deployment aktif. `WEB_ENABLED = NO` -> email tanpa link. Parameter URL disaring (tab, Task ID, nama staf) sebelum dipakai.
 
 ### 9.5 Keamanan & keterbatasan web app
 - Login memakai **kode akses** (bukan akun Google), jadi staf tanpa akun Google tetap bisa. Siapa pun yang memegang kode bisa bertindak sebagai orang itu; staf hanya melihat/ubah tugasnya sendiri, admin semuanya. Kode tersimpan di Sheet: batasi akses edit Sheet ke admin saja. Menonaktifkan staf (Inactive) langsung mencabut aksesnya; `WEB_ENABLED = NO` menutup seluruh web app.
 - Fungsi menu (Submit, Install Triggers, dsb.) menolak dipanggil dari web app.
 - Email dari web app dikirim atas nama pemilik script; kuota email harian Google berlaku.
-- Web app butuh koneksi internet; tampilan memakai data real-time dari Sheet (lambat bila database >5.000 tugas).
+- Login salah berulang hanya **memperlambat** respons (tanpa kunci akun), supaya pihak luar tidak bisa mengunci semua pengguna. Kode benar selalu lolos.
+- Batas teks: judul 200, deskripsi/catatan 2.000 karakter. Tanggal harus valid `yyyy-MM-dd`.
+- Web app butuh koneksi internet; setiap permintaan membaca seluruh database (lambat bila >5.000 tugas; uji 9.000 baris di simulasi: 0,3-0,8 dtk, di server Google nyata bisa beberapa kali lebih lama).
 - **Belum teruji di server Google asli** (deploy, izin Drive, kamera HP, kuota). Lakukan uji kecil: 1 staf + 1 foto + 1 tugas sebelum dipakai tim.
 
 ### 9.5b Tampilan (UI)
 Seluruh tampilan (staf **dan** admin) memakai UI `karyawan.html` dari aplikasi ICS Absensi (`ryofficeics-pixel/ICS-absensi`): tema kertas terang, header TASK ICS + jam, kartu profil, tab segmen, tombol hitam Syne, toast atas. Admin memakai tema yang sama dengan lebar layar lebih besar di desktop. Font Syne / DM Sans / IBM Plex Mono dari Google Fonts (perlu internet). Logika absensi (GPS/kamera/Firebase) tidak ikut — hanya tampilan.
 
 ### 9.6 Hasil pengujian (lingkungan pengembangan)
-270 pemeriksaan otomatis lulus: patch dari layout lama (v1) dan v2, idempotensi, backup, layout asing ditolak, kode akses, otorisasi staf/admin, upload foto (tipe/ukuran/ganda/batas), progres via web, penilaian, anti-duplikat, angka analitik web = hitungan LibreOffice pada workbook demo. Tampilan HP (390 px) diuji dengan browser otomatis: login, monitor, daftar, form input, update + foto — tanpa error JS.
+298 pemeriksaan fungsional + 301 (termasuk uji keamanan menu) + 86 uji stres (fuzz, otorisasi, injeksi, 9.000 baris, idempotensi, lock, batas waktu) lulus, juga foto sebelum/sesudah, isi & link email, deep link. Rincian fungsional: patch dari layout lama (v1) dan v2, idempotensi, backup, layout asing ditolak, kode akses, otorisasi staf/admin, upload foto (tipe/ukuran/ganda/batas), progres via web, penilaian, anti-duplikat, angka analitik web = hitungan LibreOffice pada workbook demo. Tampilan HP (390 px) diuji dengan browser otomatis: login, monitor, daftar, form input, update + foto — tanpa error JS.

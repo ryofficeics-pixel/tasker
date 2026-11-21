@@ -82,7 +82,7 @@ const CONFIG = {
     ENFORCE_CREATED_BY_MATCH: 'NO', REQUIRE_DELAY_REASON: 'YES', ALLOW_REOPEN_CLOSED: 'NO', EMAIL_ENABLED: 'YES',
     EMAIL_NOTIFY_ON_SUBMIT: 'YES', EMAIL_NOTIFY_ON_PROGRESS: 'YES', EMAIL_CC_ADMINS: 'YES',
     REMINDER_ENABLED: 'YES', REMINDER_HOUR: '8', REMINDER_ADMIN_DIGEST: 'YES',
-    WEB_ENABLED: 'YES', WEB_APP_URL: '', EVIDENCE_PUBLIC_LINK: 'YES', REQUIRE_EVIDENCE_ON_COMPLETE: 'NO', MAX_PHOTOS_PER_TASK: '20'
+    WEB_ENABLED: 'YES', WEB_APP_URL: '', EVIDENCE_PUBLIC_LINK: 'YES', REQUIRE_EVIDENCE_ON_COMPLETE: 'NO', MAX_PHOTOS_PER_TASK: '20', REQUIRE_BEFORE_AFTER: 'NO'
   },
 
   STATUS: { NEW: 'NEW', IN_PROGRESS: 'IN PROGRESS', PENDING: 'PENDING', COMPLETED: 'COMPLETED', CANCELLED: 'CANCELLED' },
@@ -107,6 +107,7 @@ const CONFIG = {
     KEEP_PROGRESS: '(tidak berubah)', MAX_TASK_CHOICES: 400
   },
 
+  LIMITS: { TITLE: 200, TEXT: 2000 },
   DB_MAX_ROWS: 10000,          // harus sama dengan kapasitas rumus di workbook
   FORMULA_EXTEND_CHUNK: 500,   // jumlah baris rumus yang ditambahkan sekali perluasan
   LOCK_TIMEOUT_MS: 30000,
@@ -217,6 +218,15 @@ const Util = {
   },
 
   /** Fungsi menu hanya boleh dari Sheet/editor, bukan dari halaman web app (google.script.run oleh pengunjung). */
+  /** 'yyyy-MM-dd' -> Date lokal, atau null bila format/tanggal tidak nyata (mis. 2026-13-01, 2026-02-30). */
+  ymd(s) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s || ''));
+    if (!m) return null;
+    const y = Number(m[1]), mo = Number(m[2]), d = Number(m[3]);
+    const dt = new Date(y, mo - 1, d);
+    return dt.getFullYear() === y && dt.getMonth() === mo - 1 && dt.getDate() === d && y >= 2000 && y <= 2100 ? dt : null;
+  },
+
   assertInternal() {
     if (Util.ui()) return;
     let a = '', e = '';
@@ -229,7 +239,7 @@ const Util = {
   withLock(fn) {
     const lock = LockService.getScriptLock();
     if (!lock.tryLock(CONFIG.LOCK_TIMEOUT_MS)) {
-      throw new Error('Sistem sedang dipakai pengguna lain. Tunggu beberapa detik lalu coba lagi.');
+      throw new UserError('Sistem sedang dipakai pengguna lain. Tunggu beberapa detik lalu coba lagi.');
     }
     try { return fn(); } finally { lock.releaseLock(); }
   },
@@ -500,7 +510,11 @@ const Validate = {
 
     // Title & priority
     const title = Util.str(raw.title);
-    if (!title) E.push('Task Title wajib diisi'); else clean.title = title;
+    if (!title) E.push('Task Title wajib diisi');
+    else if (title.length > CONFIG.LIMITS.TITLE) E.push('Task Title terlalu panjang (maks ' + CONFIG.LIMITS.TITLE + ' karakter)');
+    else clean.title = title;
+    if (Util.str(raw.desc).length > CONFIG.LIMITS.TEXT) E.push('Task Description terlalu panjang (maks ' + CONFIG.LIMITS.TEXT + ' karakter)');
+    if (Util.str(raw.notes).length > CONFIG.LIMITS.TEXT) E.push('Notes terlalu panjang (maks ' + CONFIG.LIMITS.TEXT + ' karakter)');
     const pr = Util.str(raw.priority);
     if (!pr) E.push('Priority wajib diisi');
     else {
@@ -734,8 +748,7 @@ const Submit = {
   formDate_(v) {
     const s = Util.str(v);
     if (!s) return '';
-    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
-    return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : s;
+    return Util.ymd(s.trim()) || s;
   },
 
   summaryText(r) {
@@ -1105,7 +1118,7 @@ const Notify = {
   },
 
   plain(html) {
-    return String(html).replace(/<\/(p|tr|table)>/gi, '\n').replace(/<\/t[dh]>/gi, ' | ').replace(/<[^>]+>/g, '')
+    return String(html).replace(/<a\s[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi, '$2 ($1)').replace(/<\/(p|tr|table)>/gi, '\n').replace(/<\/t[dh]>/gi, ' | ').replace(/<[^>]+>/g, '')
       .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&rarr;/g, '->');
   },
 
@@ -1118,10 +1131,18 @@ const Notify = {
     return Notify.send(S, email, '', subject, html);
   },
 
+  /** Sel tabel berisi ID tugas yang menjadi link ke detail tugas di web app (teks biasa bila web app tidak aktif). */
+  idCell(S, id) { const a = Web.a(S, id, { tab: 'tasks', task: id }); return a ? { html: a } : id; },
+  /** Paragraf link; '' bila web app tidak aktif. */
+  linkP(S, label, params, note) {
+    const a = Web.a(S, label, params);
+    return a ? '<p>' + a + (note ? ' <span style="font-size:12px;color:#666">' + Util.esc(note) + '</span>' : '') + '</p>' : '';
+  },
+
   table(headers, rows) {
     const th = headers.map(function (x) { return '<th style="background:#1F2937;color:#fff;padding:4px 8px;text-align:left;font-size:12px">' + Util.esc(x) + '</th>'; }).join('');
     const tr = rows.map(function (r) {
-      return '<tr>' + r.map(function (c) { return '<td style="border-bottom:1px solid #ddd;padding:4px 8px;font-size:12px">' + Util.esc(c) + '</td>'; }).join('') + '</tr>';
+      return '<tr>' + r.map(function (c) { return '<td style="border-bottom:1px solid #ddd;padding:4px 8px;font-size:12px">' + (c && typeof c === 'object' && 'html' in c ? c.html : Util.esc(c)) + '</td>'; }).join('') + '</tr>';
     }).join('');
     return '<table style="border-collapse:collapse;font-family:Arial,sans-serif"><tr>' + th + '</tr>' + tr + '</table>';
   },
@@ -1139,8 +1160,9 @@ const Notify = {
         ? list.map(function (t) { return t.adminEmail; }).filter(function (e, i, a) { return Notify.validEmail(e) && a.indexOf(e) === i; }).join(',') : '';
       const html = '<p>Halo ' + Util.esc(pic) + ', Anda mendapat ' + list.length + ' tugas baru:</p>' +
         Notify.table(['Task ID', 'Tugas', 'Proyek', 'Prioritas', 'Deadline', 'Pemberi tugas'],
-          list.map(function (t) { return [t.id, t.title, t.project, t.priority, Util.fmt(t.deadline), t.createdBy]; })) +
-        '<p style="font-size:12px;color:#666">Update progres melalui sheet PROGRESS LOG.</p>';
+          list.map(function (t) { return [Notify.idCell(S, t.id), t.title, t.project, t.priority, Util.fmt(t.deadline), t.createdBy]; })) +
+        Notify.linkP(S, 'Buka tugas & laporan saya', { tab: 'report', staff: pic }, '(masuk dengan kode akses Anda; upload foto sebelum/sesudah dari sini)') +
+        '<p style="font-size:12px;color:#666">Update progres melalui web app di atas atau sheet PROGRESS LOG.</p>';
       const r = Notify.send(S, list[0].picEmail, cc, list.length + ' tugas baru untuk ' + pic, html);
       if (r.ok) out.sent++; else out.failed.push(pic + ': ' + r.error);
     });
@@ -1156,7 +1178,9 @@ const Notify = {
       if (!adm) return;
       const html = '<p>' + Util.esc(p.by) + ' memperbarui tugas <b>' + Util.esc(p.taskId) + '</b> - ' + Util.esc(p.title) + '</p>' +
         '<p>Status: ' + Util.esc(p.prev) + ' &rarr; <b>' + Util.esc(p.status) + '</b> (' + Math.round(p.progress * 100) + '%)</p>' +
-        (p.delay ? '<p>Alasan keterlambatan: ' + Util.esc(p.delay) + '</p>' : '') + (p.notes ? '<p>Catatan: ' + Util.esc(p.notes) + '</p>' : '');
+        (p.delay ? '<p>Alasan keterlambatan: ' + Util.esc(p.delay) + '</p>' : '') + (p.notes ? '<p>Catatan: ' + Util.esc(p.notes) + '</p>' : '') +
+        Notify.linkP(S, 'Lihat tugas & foto bukti', { tab: 'tasks', task: p.taskId }) +
+        Notify.linkP(S, 'Laporan ' + p.by, { tab: 'report', staff: p.by });
       const r = Notify.send(S, adm.email, '', p.taskId + ' -> ' + p.status, html);
       if (!r.ok) Log.info('Notify.onProgress', 'gagal kirim ke ' + adm.email + ': ' + r.error);
     });
@@ -1169,21 +1193,23 @@ const Notify = {
     det.overdue.forEach(function (t) { byPic[t.pic].overdue.push(t); });
     det.dueSoon.forEach(function (t) { byPic[t.pic].dueSoon.push(t); });
     const staff = Masters.staff(S);
-    const rowsOf = function (a, lbl) { return a.map(function (t) { return [t.id, t.title, t.project, Util.fmt(t.deadline), t.days + ' hari ' + lbl]; }); };
+    const rowsOf = function (a, lbl) { return a.map(function (t) { return [Notify.idCell(S, t.id), t.title, t.project, Util.fmt(t.deadline), t.days + ' hari ' + lbl]; }); };
     Object.keys(byPic).forEach(function (pic) {
       const s = staff.byName[Util.low(pic)];
       if (!s || !s.active) return;
       const g = byPic[pic]; let html = '<p>Halo ' + Util.esc(pic) + ',</p>';
       if (g.overdue.length) html += '<p><b style="color:#C00000">OVERDUE (' + g.overdue.length + ')</b></p>' + Notify.table(['Task ID', 'Tugas', 'Proyek', 'Deadline', 'Terlambat'], rowsOf(g.overdue, 'terlambat'));
       if (g.dueSoon.length) html += '<p><b>Mendekati deadline (' + g.dueSoon.length + ')</b></p>' + Notify.table(['Task ID', 'Tugas', 'Proyek', 'Deadline', 'Sisa'], rowsOf(g.dueSoon, 'lagi'));
+      html += Notify.linkP(S, 'Buka tugas & laporan saya', { tab: 'report', staff: pic });
       const r = Notify.send(S, s.email, '', 'Reminder: ' + g.overdue.length + ' overdue, ' + g.dueSoon.length + ' mendekati deadline', html);
       if (r.ok) out.sent++; else out.failed.push(pic + ': ' + r.error);
     });
     if (Settings.yes(S, 'REMINDER_ADMIN_DIGEST') && (det.overdue.length || det.dueSoon.length)) {
-      const all = det.overdue.map(function (t) { return [t.id, t.title, t.pic, t.project, Util.fmt(t.deadline), 'OVERDUE ' + t.days + ' hari']; })
-        .concat(det.dueSoon.map(function (t) { return [t.id, t.title, t.pic, t.project, Util.fmt(t.deadline), 'sisa ' + t.days + ' hari']; }));
+      const all = det.overdue.map(function (t) { return [Notify.idCell(S, t.id), t.title, t.pic, t.project, Util.fmt(t.deadline), 'OVERDUE ' + t.days + ' hari']; })
+        .concat(det.dueSoon.map(function (t) { return [Notify.idCell(S, t.id), t.title, t.pic, t.project, Util.fmt(t.deadline), 'sisa ' + t.days + ' hari']; }));
       const html = '<p>Ringkasan harian ' + Util.fmt(now, 'dd/MM/yyyy') + ': ' + det.overdue.length + ' overdue, ' + det.dueSoon.length + ' mendekati deadline.</p>' +
-        Notify.table(['Task ID', 'Tugas', 'PIC', 'Proyek', 'Deadline', 'Status'], all);
+        Notify.table(['Task ID', 'Tugas', 'PIC', 'Proyek', 'Deadline', 'Status'], all) +
+        Notify.linkP(S, 'Buka monitoring', { tab: 'monitor' });
       S.admins.forEach(function (a) {
         const r = Notify.send(S, a.email, '', 'Ringkasan harian: ' + det.overdue.length + ' overdue', html);
         if (r.ok) out.sent++; else out.failed.push(a.name + ': ' + r.error);
@@ -1569,7 +1595,7 @@ const SelfTest = {
 //  Idempotent: aman dijalankan berkali-kali. Selalu membuat salinan cadangan lebih dulu.
 // ============================================================================
 const Patch = {
-  VERSION: '3.0.0',
+  VERSION: '3.1.0',
 
   cfgRow_(sh, key) {
     const L = CONFIG.SETTINGS_LAYOUT;
@@ -1594,7 +1620,8 @@ const Patch = {
       ['WEB_APP_URL', '', 'Opsional: isi link web app (hasil Deploy) untuk dicatat/dibagikan.', false],
       ['EVIDENCE_PUBLIC_LINK', 'YES', 'YES = foto bukti bisa dibuka lewat link (tanpa login Google). NO = hanya email admin yang diberi akses.', true],
       ['REQUIRE_EVIDENCE_ON_COMPLETE', 'NO', 'YES = staf wajib melampirkan foto bukti saat menyelesaikan tugas (COMPLETED).', true],
-      ['MAX_PHOTOS_PER_TASK', 20, 'Batas jumlah foto bukti per tugas.', false]
+      ['MAX_PHOTOS_PER_TASK', 20, 'Batas jumlah foto bukti per tugas.', false],
+      ['REQUIRE_BEFORE_AFTER', 'NO', 'YES = tugas baru boleh COMPLETED (lewat web) hanya bila ada minimal 1 foto SEBELUM dan 1 foto SESUDAH.', true]
     ];
   },
 
@@ -1792,7 +1819,6 @@ const Auth = {
   /** @return {role:'admin'|'staff', name, email, id} ; melempar UserError bila kode salah. */
   resolve(code, S) {
     const c = Auth.norm(code);
-    if (Auth.failCount_() >= Auth.MAX_FAILS) throw new UserError('Terlalu banyak percobaan salah. Coba lagi dalam 10 menit.');
     const hits = [];
     if (c.length >= 6) {
       S.admins.forEach(function (a) { if (a.code && Auth.norm(a.code) === c) hits.push({ role: 'admin', name: a.name, email: a.email, id: '' }); });
@@ -1800,13 +1826,14 @@ const Auth = {
         if (x.active && x.code && Auth.norm(x.code) === c) hits.push({ role: 'staff', name: x.name, email: x.email, id: x.id });
       });
     }
-    if (hits.length === 1) return hits[0];
+    if (hits.length === 1) return hits[0];     // kode benar selalu lolos: penyerang anonim tidak bisa mengunci pengguna sah
     Auth.fail_();
+    if (Auth.failCount_() >= Auth.MAX_FAILS) Utilities.sleep(2500);   // tebakan salah beruntun diperlambat, bukan memblokir semua orang
     if (hits.length > 1) {
       Log.audit('WARN', 'WEB-LOGIN', 'Kode akses ganda dipakai oleh ' + hits.map(function (h) { return h.name; }).join(' & '));
       throw new UserError('Kode akses ganda. Hubungi admin.');
     }
-    Log.audit('WARN', 'WEB-LOGIN', 'Kode akses salah/tidak aktif');
+    if (Auth.failCount_() <= Auth.MAX_FAILS) Log.audit('WARN', 'WEB-LOGIN', 'Kode akses salah/tidak aktif' + (Auth.failCount_() === Auth.MAX_FAILS ? ' (batas ' + Auth.MAX_FAILS + ' kegagalan/10 menit tercapai; kegagalan berikutnya tidak dicatat lagi)' : ''));
     throw new UserError('Kode akses salah atau akun tidak aktif.');
   },
 
@@ -1872,8 +1899,7 @@ const Analytics = {
   },
 
   parseDay(s) {
-    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(Util.str(s));
-    return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
+    return Util.ymd(Util.str(s).trim());
   },
 
   avg_(a) { return a.length ? a.reduce(function (x, y) { return x + y; }, 0) / a.length : null; },
@@ -1956,7 +1982,39 @@ const Analytics = {
 // ============================================================================
 //  Photos  (foto bukti dari web app -> Google Drive + EVIDENCE LOG)
 // ============================================================================
+const Web = {
+  /** URL dasar web app: SETTINGS > WEB_APP_URL, bila kosong URL deployment aktif. '' bila tidak ada. */
+  url(S) {
+    let u = Util.str(S && S.cfg && S.cfg.WEB_APP_URL).trim();
+    if (!/^https:\/\/script\.google(usercontent)?\.com\//.test(u)) u = '';
+    if (!u) { try { u = ScriptApp.getService().getUrl() || ''; } catch (e) { u = ''; } }
+    return /^https:\/\//.test(u) ? u : '';
+  },
+  /** Link dalam web app, mis. link(S, {tab:'report', staff:'Staf 01'}). '' bila web app belum di-deploy / WEB_ENABLED = NO. */
+  link(S, params) {
+    if (!Settings.yes(S, 'WEB_ENABLED')) return '';
+    const base = Web.url(S); if (!base) return '';
+    const q = Object.keys(params || {}).filter(function (k) { return params[k] !== '' && params[k] !== undefined && params[k] !== null; })
+      .map(function (k) { return encodeURIComponent(k) + '=' + encodeURIComponent(String(params[k])); }).join('&');
+    return base + (q ? (base.indexOf('?') >= 0 ? '&' : '?') + q : '');
+  },
+  a(S, label, params) {
+    const u = Web.link(S, params);
+    return u ? '<a href="' + Util.esc(u) + '" style="color:#1a56db;font-weight:bold">' + Util.esc(label) + '</a>' : '';
+  },
+  /** Sanitasi parameter deep-link dari URL (hanya navigasi; login tetap wajib). */
+  deep(e) {
+    const p = (e && e.parameter) || {}; const out = {};
+    if (['monitor', 'tasks', 'input', 'report'].indexOf(String(p.tab)) >= 0) out.tab = String(p.tab);
+    if (/^[A-Za-z0-9_-]{3,30}$/.test(String(p.task || ''))) out.task = String(p.task).toUpperCase();
+    if (p.staff && String(p.staff).length <= 80) out.staff = String(p.staff);
+    return out;
+  }
+};
+
 const Photos = {
+  KINDS: { BEFORE: 'SEBELUM', AFTER: 'SESUDAH', OTHER: 'LAINNYA' },
+  tagOf_(desc) { const m = /^\[(BEFORE|AFTER)\]\s?/.exec(String(desc || '')); return m ? { kind: m[1], desc: String(desc).substring(m[0].length) } : { kind: 'OTHER', desc: String(desc || '') }; },
   MIME: { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' },
   MAX_BYTES: 6 * 1024 * 1024,
 
@@ -2010,7 +2068,7 @@ const Photos = {
     v.forEach(function (r) {
       if (Util.str(r[h[E_.ID] - 1]) === '') return;
       out.push({ id: Util.str(r[h[E_.ID] - 1]), taskId: Util.up(r[h[E_.TASK_ID] - 1]), date: r[h[E_.DATE] - 1], by: Util.str(r[h[E_.BY] - 1]),
-                 desc: Util.str(r[h[E_.DESC] - 1]), url: Util.str(r[h[E_.URL] - 1]) });
+                 desc: Photos.tagOf_(Util.str(r[h[E_.DESC] - 1])).desc, kind: Photos.tagOf_(Util.str(r[h[E_.DESC] - 1])).kind, url: Util.str(r[h[E_.URL] - 1]) });
     });
     return out;
   },
@@ -2026,6 +2084,7 @@ const Photos = {
     if (bytes.length > Photos.MAX_BYTES) throw new UserError('Ukuran foto terlalu besar (maks 6 MB).');
     if (Photos.sniff_(bytes) !== mime) throw new UserError('Isi file bukan foto yang valid.');
     const taskId = t[H.TASK_ID];
+    const kind = Photos.KINDS[Util.up(p.kind)] ? Util.up(p.kind) : 'OTHER';
     const maxN = Math.max(1, Settings.num(S, 'MAX_PHOTOS_PER_TASK'));
     return Util.withLock(function () {
       const have = Photos.evidenceRows_().filter(function (e) { return e.taskId === Util.up(taskId); }).length;
@@ -2034,7 +2093,7 @@ const Photos = {
       const root = Photos.root_(S);
       const folder = Photos.taskFolder_(root, taskId);
       const stamp = Utilities.formatDate(now, Util.tz(), 'yyyyMMdd-HHmmss');
-      const fname = taskId + '_' + stamp + '_' + (have + 1) + '.' + Photos.MIME[mime];
+      const fname = taskId + '_' + (kind === 'OTHER' ? '' : Photos.KINDS[kind] + '_') + stamp + '_' + (have + 1) + '.' + Photos.MIME[mime];
       const file = folder.createFile(Utilities.newBlob(bytes, mime, fname));
       Photos.share_(file, S);
       const url = file.getUrl();
@@ -2043,7 +2102,7 @@ const Photos = {
       const row = Math.max(Util.lastNonEmptyRow(sh, h[E_.ID], 2), Util.lastNonEmptyRow(sh, h[E_.TASK_ID], 2), Util.lastNonEmptyRow(sh, h[E_.URL], 2)) + 1;
       sh.getRange(row, h[E_.TASK_ID]).setValue(taskId);
       sh.getRange(row, h[E_.BY]).setValue(user.name);
-      sh.getRange(row, h[E_.DESC]).setNumberFormat('@').setValue(Util.str(p.desc).substring(0, 300) || 'Foto bukti (web)');
+      sh.getRange(row, h[E_.DESC]).setNumberFormat('@').setValue((kind === 'OTHER' ? '' : '[' + kind + '] ') + (Util.str(p.desc).substring(0, 300) || 'Foto ' + Photos.KINDS[kind].toLowerCase() + ' (web)'));
       sh.getRange(row, h[E_.URL]).setValue(url);
       const r = Evidence.process_(now);
       const mine = r.errors.filter(function (e) { return e.row === row; })[0];
@@ -2052,7 +2111,7 @@ const Photos = {
       const db = Db.open();
       db.sheet.getRange(t._row, db.h[H.EVIDENCE]).setValue(folder.getUrl());
       Log.audit('INFO', 'WEB-PHOTO', taskId + ' foto ' + fname + ' oleh ' + user.name);
-      return { evidenceId: r.processed[0] ? r.processed[0].id : '', url: url, folder: folder.getUrl() };
+      return { evidenceId: r.processed[0] ? r.processed[0].id : '', url: url, folder: folder.getUrl(), kind: kind };
     });
   },
 
@@ -2100,7 +2159,7 @@ const Api = {
     const out = {
       systemName: S.cfg.SYSTEM_NAME, user: { role: user.role, name: user.name }, priorities: S.priorities,
       statuses: S.statuses, delayCategories: S.delayCategories.map(function (x) { return x.name; }), quality: S.quality.map(function (x) { return x.label; }),
-      requireDelay: Settings.yes(S, 'REQUIRE_DELAY_REASON'), requireEvidence: Settings.yes(S, 'REQUIRE_EVIDENCE_ON_COMPLETE'),
+      requireDelay: Settings.yes(S, 'REQUIRE_DELAY_REASON'), requireEvidence: Settings.yes(S, 'REQUIRE_EVIDENCE_ON_COMPLETE'), requireBeforeAfter: Settings.yes(S, 'REQUIRE_BEFORE_AFTER'),
       dueSoonDays: Settings.num(S, 'DUE_SOON_DAYS'), today: Utilities.formatDate(new Date(), Util.tz(), 'yyyy-MM-dd')
     };
     if (user.role === 'admin') {
@@ -2154,7 +2213,7 @@ const Api = {
       }
       hist.reverse();
       return { task: Api.taskDto_(t, Analytics.derive(t, S, now), now, ev.length), history: hist,
-               evidence: ev.map(function (e) { return { id: e.id, at: Api.fmtDt_(e.date), by: e.by, desc: e.desc, url: e.url }; }) };
+               evidence: ev.map(function (e) { return { id: e.id, at: Api.fmtDt_(e.date), by: e.by, desc: e.desc, kind: e.kind, url: e.url }; }) };
     },
 
     evidenceImage(user, p, S) {
@@ -2185,6 +2244,13 @@ const Api = {
       if (ns === ST.COMPLETED && Settings.yes(S, 'REQUIRE_EVIDENCE_ON_COMPLETE') &&
           Photos.evidenceRows_().filter(function (e) { return e.taskId === Util.up(t[H.TASK_ID]); }).length === 0) {
         throw new UserError('Lampirkan minimal 1 foto bukti sebelum menyelesaikan tugas.');
+      }
+      if (Util.str(p.notes).length > CONFIG.LIMITS.TEXT || Util.str(p.delay).length > CONFIG.LIMITS.TEXT) throw new UserError('Catatan terlalu panjang (maks ' + CONFIG.LIMITS.TEXT + ' karakter).');
+      if (ns === ST.COMPLETED && Settings.yes(S, 'REQUIRE_BEFORE_AFTER')) {
+        const evs = Photos.evidenceRows_().filter(function (e) { return e.taskId === Util.up(t[H.TASK_ID]); });
+        if (!evs.some(function (e) { return e.kind === 'BEFORE'; }) || !evs.some(function (e) { return e.kind === 'AFTER'; })) {
+          throw new UserError('Lampirkan foto SEBELUM dan foto SESUDAH sebelum menyelesaikan tugas.');
+        }
       }
       const revised = Util.str(p.revised) ? Analytics.parseDay(p.revised) : '';
       if (Util.str(p.revised) && !revised) throw new UserError('Format tanggal revisi tidak valid.');
@@ -2259,6 +2325,7 @@ const Api = {
     try {
       let p = {};
       try { p = payloadJson ? JSON.parse(payloadJson) : {}; } catch (e) { throw new UserError('Permintaan tidak valid.'); }
+      if (p === null || typeof p !== 'object' || Array.isArray(p)) throw new UserError('Permintaan tidak valid.');
       if (!Api.actions.hasOwnProperty(action)) throw new UserError('Aksi tidak dikenal.');
       const S = Settings.load();
       if (!Settings.yes(S, 'WEB_ENABLED')) throw new UserError('Web app sedang dinonaktifkan oleh admin.');
@@ -2510,11 +2577,12 @@ function checkEvidenceFolder() {
 }
 
 /** Endpoint web app: halaman HTML (Index.html). */
-function doGet() {
+function doGet(e) {
   let name = 'Staff Performance Tracking';
   try { name = Settings.load().cfg.SYSTEM_NAME || name; } catch (e) { /* tetap tampilkan halaman login */ }
   const t = HtmlService.createTemplateFromFile('Index');
   t.systemName = name;
+  t.deep = JSON.stringify(Web.deep(e)).replace(/</g, '\\u003c');
   return t.evaluate().setTitle(name).addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }

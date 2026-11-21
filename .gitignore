@@ -1,0 +1,4 @@
+node_modules/
+run_*.js
+dump.json
+*.bak.*
